@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Retirement Cash Flow Calculator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#f7f7f5; --panel:#ffffff; --text:#1c1c1a; --muted:#6b6b66;
+    --border:#e2e0da; --accent:#2f5d50; --accent2:#a3b18a; --danger:#b3491f;
+    --input-bg:#fbfbf9;
+    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#17181a; --panel:#1f2123; --text:#eceae4; --muted:#9a9890;
+      --border:#33352f; --accent:#7fa593; --accent2:#c7d3a8; --danger:#e07a52;
+      --input-bg:#26282a;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#17181a; --panel:#1f2123; --text:#eceae4; --muted:#9a9890;
+    --border:#33352f; --accent:#7fa593; --accent2:#c7d3a8; --danger:#e07a52;
+    --input-bg:#26282a;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);}
+  body{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);}
+  .wrap{max-width:1150px;margin:0 auto;padding:24px 16px 60px;}
+  h1{font-size:1.4rem;margin:0 0 4px;}
+  .sub{color:var(--muted);font-size:0.9rem;margin-bottom:14px;}
+  .grid{display:grid;grid-template-columns:1fr;gap:16px;}
+  @media(min-width:820px){ .grid{grid-template-columns:370px 1fr;} }
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:14px;}
+  .card h2{font-size:0.95rem;margin:0 0 10px;color:var(--accent);text-transform:uppercase;letter-spacing:.04em;}
+  details.card{padding:0;}
+  details.card>summary{cursor:pointer;list-style:none;padding:13px 18px;font-size:0.9rem;font-weight:600;color:var(--accent);display:flex;justify-content:space-between;gap:8px;}
+  details.card>summary::-webkit-details-marker{display:none;}
+  details.card>summary::after{content:"+";font-weight:400;font-size:1.1rem;color:var(--muted);}
+  details.card[open]>summary::after{content:"–";}
+  details.card>.body{padding:0 18px 14px;}
+  .adv-title{font-size:0.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:18px 0 8px;display:flex;justify-content:space-between;align-items:center;}
+  .adv-title button{font-size:0.72rem;background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:3px 8px;cursor:pointer;}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;}
+  .row label{font-size:0.85rem;color:var(--text);flex:1;}
+  .row input,.row select{width:110px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--input-bg);color:var(--text);font-size:0.85rem;text-align:right;}
+  .row select{width:150px;text-align:left;}
+  .row input:focus,.row select:focus{outline:2px solid var(--accent);outline-offset:1px;}
+  .row input.sm{width:84px;}
+  .stat{display:flex;flex-direction:column;background:var(--input-bg);border:1px solid var(--border);border-radius:10px;padding:10px 14px;min-width:120px;}
+  .stat .v{font-size:1.15rem;font-weight:600;}
+  .stat .k{font-size:0.72rem;color:var(--muted);}
+  .stats{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;}
+  .danger .v{color:var(--danger);}
+  .ok .v{color:var(--accent);}
+  table{width:100%;border-collapse:collapse;font-size:0.76rem;}
+  th,td{padding:4px 6px;text-align:right;border-bottom:1px solid var(--border);white-space:nowrap;}
+  th:first-child,td:first-child{text-align:left;}
+  thead th{position:sticky;top:0;background:var(--panel);}
+  tbody tr.depleted{color:var(--danger);}
+  .tablewrap{max-height:380px;overflow:auto;border:1px solid var(--border);border-radius:8px;}
+  .chartbox{height:320px;margin-bottom:14px;}
+  .hint{font-size:0.75rem;color:var(--muted);margin-top:2px;line-height:1.35;}
+  .section-title{font-weight:600;font-size:0.82rem;margin:12px 0 4px;color:var(--muted);}
+  .btn{font-size:0.8rem;background:var(--accent);color:#fff;border:0;border-radius:6px;padding:6px 10px;cursor:pointer;margin-top:4px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🧮 Retirement Cash Flow Calculator</h1>
+  <div class="sub">The core inputs are open below. Optional scenarios are collapsed and do nothing until you fill them in. Spending and medical are monthly; income, pensions and one-time events are annual or nominal as labeled. Dollar inputs are in today's dollars unless noted.</div>
+
+  <div class="grid">
+    <div>
+      <!-- CORE -->
+      <div class="card">
+        <h2>Timeline</h2>
+        <div class="row"><label>Person 1 current age</label><input type="number" id="age1" value="55"></div>
+        <div class="row"><label>Person 1 retirement age</label><input type="number" id="retire1" value="65"></div>
+        <div class="row"><label>Person 1 plan-to age</label><input type="number" id="planAge" value="95"></div>
+        <div class="row"><label>Person 2 current age (0 = none)</label><input type="number" id="age2" value="53"></div>
+        <div class="row"><label>Person 2 retirement age</label><input type="number" id="retire2" value="63"></div>
+        <div class="row"><label>Person 2 plan-to age</label><input type="number" id="planAge2" value="95"></div>
+        <div class="hint">Each person is modeled as alive through their plan-to age. After the first person's plan ends, the survivor gets the larger Social Security benefit, the pension survivor %, single-filer taxes, and reduced spending. The projection runs until the last person's plan ends.</div>
+      </div>
+
+      <div class="card">
+        <h2>Income (annual)</h2>
+        <div class="row"><label>Person 1 salary</label><input type="number" id="sal1" value="80000"></div>
+        <div class="row"><label>Person 2 salary</label><input type="number" id="sal2" value="60000"></div>
+        <div class="row"><label>Person 1 Social Security</label><input type="number" id="ss1" value="28000"></div>
+        <div class="row"><label>...claiming age</label><input type="number" id="ss1age" value="67"></div>
+        <div class="row"><label>Person 2 Social Security</label><input type="number" id="ss2" value="22000"></div>
+        <div class="row"><label>...claiming age</label><input type="number" id="ss2age" value="67"></div>
+        <div class="row"><label>Person 1 pension (as first paid)</label><input type="number" id="pen1" value="0"></div>
+        <div class="row"><label>...starts at age</label><input type="number" id="pen1age" value="65"></div>
+        <div class="row"><label>Person 2 pension (as first paid)</label><input type="number" id="pen2" value="0"></div>
+        <div class="row"><label>...starts at age</label><input type="number" id="pen2age" value="63"></div>
+        <div class="row"><label>Other income (inflates)</label><input type="number" id="otherInc" value="0"></div>
+        <div class="hint">Enter each Social Security benefit for the age you plan to claim; the model does not adjust it for early or late claiming. Benefits are in today's dollars and grow with inflation.</div>
+      </div>
+
+      <div class="card">
+        <h2>Spending &amp; Medical (monthly)</h2>
+        <div class="row"><label>Household spending (today's $)</label><input type="number" id="spendMonthly" value="4167"></div>
+        <details style="margin:6px 0 10px">
+          <summary style="cursor:pointer;font-size:0.8rem;color:var(--muted)">Budget helper: build the number from categories</summary>
+          <div style="margin-top:8px">
+            <div class="row"><label>Groceries</label><input type="number" class="bh" value="800"></div>
+            <div class="row"><label>Dining out</label><input type="number" class="bh" value="400"></div>
+            <div class="row"><label>Utilities</label><input type="number" class="bh" value="350"></div>
+            <div class="row"><label>Phone/internet/cable</label><input type="number" class="bh" value="200"></div>
+            <div class="row"><label>Transportation/auto</label><input type="number" class="bh" value="600"></div>
+            <div class="row"><label>Insurance (home/auto/life)</label><input type="number" class="bh" value="400"></div>
+            <div class="row"><label>Home maintenance</label><input type="number" class="bh" value="300"></div>
+            <div class="row"><label>Entertainment/travel</label><input type="number" class="bh" value="500"></div>
+            <div class="row"><label>Clothing/personal care</label><input type="number" class="bh" value="250"></div>
+            <div class="row"><label>Other/miscellaneous</label><input type="number" class="bh" value="367"></div>
+            <div class="row"><label><b>Total per month</b></label><b id="bhTotal">$4,167</b></div>
+            <button class="btn" id="bhUse" type="button">Use this total as household spending</button>
+            <div class="hint">Excludes mortgage, debt, and medical, which have their own lines below. Everything here inflates at the general rate, so only the total matters to the math.</div>
+          </div>
+        </details>
+        <div class="row"><label>Mortgage/rent payment</label><input type="number" id="mortgage" value="1500"></div>
+        <div class="row"><label>Years of mortgage left</label><input type="number" id="mortgageYrs" value="10"></div>
+        <div class="row"><label>Other debt payment</label><input type="number" id="debt" value="500"></div>
+        <div class="row"><label>Years of debt left</label><input type="number" id="debtYrs" value="4"></div>
+        <div class="section-title">Medical, per person (own inflation rate below)</div>
+        <div class="row"><label>While working (employer coverage)</label><input type="number" id="medWork" value="500"></div>
+        <div class="row"><label>Retired, before Medicare</label><input type="number" id="medRet" value="500"></div>
+        <div class="row"><label>On Medicare</label><input type="number" id="medMedicare" value="400"></div>
+        <div class="row"><label>Medicare eligibility age</label><input type="number" id="medicareAge" value="65"></div>
+      </div>
+
+      <div class="card">
+        <h2>Accounts &amp; Growth</h2>
+        <div class="row"><label>Pre-tax (401k / traditional IRA)</label><input type="number" id="acctPre" value="600000"></div>
+        <div class="row"><label>Roth accounts</label><input type="number" id="acctRoth" value="150000"></div>
+        <div class="row"><label>Taxable brokerage / savings</label><input type="number" id="acctTax" value="250000"></div>
+        <div class="row"><label>Expected annual return</label><input type="number" id="returnRate" value="5.5" style="width:70px">%</div>
+        <div class="row"><label>Fees (fund + advisory)</label><input type="number" id="fee" value="0.5" style="width:70px">%</div>
+        <div class="row"><label>General inflation</label><input type="number" id="inflation" value="2.5" style="width:70px">%</div>
+        <div class="row"><label>Medical inflation</label><input type="number" id="medInflation" value="5.5" style="width:70px">%</div>
+        <div class="row"><label>Return volatility (std dev)</label><input type="number" id="volatility" value="11" style="width:70px">%</div>
+        <div class="hint">Volatility: roughly 8-10% for a conservative mix, 11-13% balanced, 15-17% mostly stocks. Surplus cash while working goes to the taxable account. Withdrawals come from taxable first, then pre-tax, then Roth; required minimum distributions are forced from pre-tax.</div>
+      </div>
+
+      <div class="adv-title"><span>Optional scenarios (all off until filled in)</span><button id="toggleAll" type="button">Expand all</button></div>
+
+      <details class="card"><summary>Work after retirement &amp; one-time events</summary><div class="body">
+        <div class="section-title">Part-time work (annual, today's $; starts at that person's retirement)</div>
+        <div class="row"><label>Person 1 part-time income</label><input type="number" id="pt1" value="0"></div>
+        <div class="row"><label>...last year worked</label><input type="number" id="pt1end" value="2035"></div>
+        <div class="row"><label>Person 2 part-time income</label><input type="number" id="pt2" value="0"></div>
+        <div class="row"><label>...last year worked</label><input type="number" id="pt2end" value="2035"></div>
+        <div class="section-title">One-time events (nominal $; + inflow to taxable account, – outflow)</div>
+        <div class="row"><label>Event 1: year, amount</label><span><input type="number" class="sm" id="ev1year" value="2029"> <input type="number" class="sm" id="ev1amt" value="0"></span></div>
+        <div class="row"><label>Event 2: year, amount</label><span><input type="number" class="sm" id="ev2year" value="2030"> <input type="number" class="sm" id="ev2amt" value="0"></span></div>
+        <div class="row"><label>Event 3: year, amount</label><span><input type="number" class="sm" id="ev3year" value="2035"> <input type="number" class="sm" id="ev3amt" value="0"></span></div>
+        <div class="row"><label>Event 4: year, amount</label><span><input type="number" class="sm" id="ev4year" value="2040"> <input type="number" class="sm" id="ev4amt" value="0"></span></div>
+        <div class="hint">Examples: a note or business sale (enter the amount after taxes and paydowns), an inheritance, a roof or a vehicle (negative). Amounts are in the dollars of that year, not today's dollars.</div>
+      </div></details>
+
+      <details class="card"><summary>Spending changes &amp; stress tests</summary><div class="body">
+        <div class="row"><label>Monthly spending while exactly one works (0 = same)</label><input type="number" id="spendOne" value="0"></div>
+        <div class="section-title">Spending by life stage (household spending line only)</div>
+        <div class="row"><label>Stage 2 starts at Person 1 age</label><input type="number" id="spendAge2" value="75"></div>
+        <div class="row"><label>Stage 2, % of spending</label><input type="number" id="spendPct2" value="100" style="width:70px">%</div>
+        <div class="row"><label>Stage 3 starts at Person 1 age</label><input type="number" id="spendAge3" value="85"></div>
+        <div class="row"><label>Stage 3, % of spending</label><input type="number" id="spendPct3" value="100" style="width:70px">%</div>
+        <div class="row"><label>Spending after first death, % of couple's</label><input type="number" id="survSpend" value="75" style="width:70px">%</div>
+        <div class="section-title">Stress tests (annual, today's $)</div>
+        <div class="row"><label>Long-term care cost / yr</label><input type="number" id="ltcCost" value="0"></div>
+        <div class="row"><label>LTC start (Person 1 age)</label><input type="number" id="ltcAge" value="85"></div>
+        <div class="row"><label>LTC years</label><input type="number" id="ltcYrs" value="3"></div>
+        <div class="row"><label>One-time big expense</label><input type="number" id="lumpAmt" value="0"></div>
+        <div class="row"><label>...at Person 1 age</label><input type="number" id="lumpAge" value="70"></div>
+        <div class="row"><label>Social Security benefit cut</label><input type="number" id="ssCut" value="0" style="width:70px">%</div>
+        <div class="row"><label>...starting in year</label><input type="number" id="ssCutYear" value="2034"></div>
+        <div class="hint">Long-term care inflates at the medical rate and is charged only while Person 1 is alive. Try $100,000/yr for 3 years. Spending stages usually ease in the late 70s and 80s (85% at 75 and 75% at 85 is a common guess).</div>
+      </div></details>
+
+      <details class="card"><summary>Early death override &amp; pension details</summary><div class="body">
+        <div class="row"><label>Who passes first? (overrides plan-to age)</label>
+          <select id="deathWho"><option value="0">No override</option><option value="1">Person 1</option><option value="2">Person 2</option></select></div>
+        <div class="row"><label>Age at death</label><input type="number" id="deathAge" value="82"></div>
+        <div class="section-title">Pension details</div>
+        <div class="row"><label>Person 1 pension annual COLA</label><input type="number" id="pen1cola" value="0" style="width:70px">%</div>
+        <div class="row"><label>Person 1 survivor benefit</label><input type="number" id="pen1surv" value="50" style="width:70px">%</div>
+        <div class="row"><label>Person 2 pension annual COLA</label><input type="number" id="pen2cola" value="0" style="width:70px">%</div>
+        <div class="row"><label>Person 2 survivor benefit</label><input type="number" id="pen2surv" value="50" style="width:70px">%</div>
+        <div class="hint">Use the override to test an early death while the plan-to ages stay your base case. Pension amounts are as first paid; the COLA applies after the start age.</div>
+      </div></details>
+
+      <details class="card"><summary>Taxes &amp; early-withdrawal penalty</summary><div class="body">
+        <div class="row"><label>State income tax (flat)</label><input type="number" id="stateRate" value="4" style="width:70px">%</div>
+        <div class="row"><label>Capital gains rate</label><input type="number" id="capRate" value="15" style="width:70px">%</div>
+        <div class="row"><label>Gain share of taxable withdrawals</label><input type="number" id="gainFrac" value="35" style="width:70px">%</div>
+        <div class="row"><label>RMD start age</label><input type="number" id="rmdAge" value="75"></div>
+        <div class="row"><label>Early-withdrawal penalty rate</label><input type="number" id="penRate" value="10" style="width:70px">%</div>
+        <div class="row"><label>Penalty applies before Person 1 age</label><input type="number" id="penAge" value="59.5"></div>
+        <div class="row"><label>Share of pre-tax withdrawals exempt</label><input type="number" id="penExempt" value="0" style="width:70px">%</div>
+        <div class="hint">Federal tax uses 2026 brackets and standard deductions (married filing jointly, or single after a death), indexed to your inflation rate. Social Security is taxed under the provisional-income rules. Payroll tax is 7.65% of wages. Pre-tax withdrawals before the penalty age incur the penalty unless exempt (a governmental 457 plan, 72(t) payments, or the rule of 55 can avoid it, so ask your advisor). Not modeled: extra deductions for 65+, Medicare income surcharges, taxes on brokerage interest and dividends, and Roth conversions.</div>
+      </div></details>
+
+      <details class="card"><summary>Home: net worth &amp; sale</summary><div class="body">
+        <div class="row"><label>Current home value</label><input type="number" id="homeValue" value="450000"></div>
+        <div class="row"><label>Annual appreciation</label><input type="number" id="homeAppr" value="3" style="width:70px">%</div>
+        <div class="row"><label>Current mortgage balance</label><input type="number" id="mortBal" value="120000"></div>
+        <div class="hint">Balance is paid down in a straight line over "Years of mortgage left." Home equity appears in net worth but is not spent unless you sell.</div>
+        <div class="section-title">Sell and move (age 0 = no sale)</div>
+        <div class="row"><label>Sell at Person 1 age</label><input type="number" id="sellAge" value="0"></div>
+        <div class="row"><label>Selling costs</label><input type="number" id="sellCost" value="6" style="width:70px">%</div>
+        <div class="row"><label>Cost basis (price + improvements)</label><input type="number" id="basis" value="250000"></div>
+        <div class="row"><label>After selling</label>
+          <select id="homeAfter"><option value="0">Rent</option><option value="1">Buy a home</option></select></div>
+        <div class="row"><label>New home price (today's $, if buying)</label><input type="number" id="newPrice" value="350000"></div>
+        <div class="row"><label>New housing cost / month</label><input type="number" id="newHousing" value="2200"></div>
+        <div class="row"><label>Moving costs (today's $)</label><input type="number" id="movingCost" value="10000"></div>
+        <div class="hint">At the sale the mortgage is paid off, gain above the home-sale exclusion ($250,000 single, $500,000 married) is taxed at the capital gains rate, and the rest goes to the taxable account. If you buy, the new price comes out of the proceeds and counts as home equity. After the move, the old mortgage payment stops and the new housing cost starts. Adjust spending if the move changes it.</div>
+      </div></details>
+
+      <details class="card"><summary>Annual gifting to children</summary><div class="body">
+        <div class="row"><label>Number of recipients</label><input type="number" id="giftRecipients" value="0"></div>
+        <div class="row"><label>Gift per recipient / yr</label><input type="number" id="giftAmt" value="19000"></div>
+        <div class="row"><label>Number of givers (2 = splitting)</label><input type="number" id="giftGivers" value="2" min="1" max="2"></div>
+        <div class="row"><label>Exclusion per giver per recipient</label><input type="number" id="giftLimit" value="19000"></div>
+        <div class="row"><label>Start gifting at Person 1 age</label><input type="number" id="giftStart" value="65"></div>
+        <div class="row"><label>Stop gifting at Person 1 age</label><input type="number" id="giftEnd" value="85"></div>
+        <div class="hint">$19,000 is the 2026 federal annual exclusion per giver per recipient. Gifts leave your accounts and estate; amounts above the exclusion use lifetime exemption and need a gift tax return. Gifts and the exclusion both inflate at the general rate (approximate). Gifting appreciated assets means your children lose the step-up in basis they would get by inheriting.</div>
+      </div></details>
+
+      <details class="card"><summary>Life insurance</summary><div class="body">
+        <div class="row"><label>Person 1 death benefit</label><input type="number" id="life1" value="0"></div>
+        <div class="row"><label>Annual premium</label><input type="number" id="life1prem" value="0"></div>
+        <div class="row"><label>Coverage ends at age (0 = lifetime)</label><input type="number" id="life1end" value="0"></div>
+        <div class="row"><label>Person 2 death benefit</label><input type="number" id="life2" value="0"></div>
+        <div class="row"><label>Annual premium</label><input type="number" id="life2prem" value="0"></div>
+        <div class="row"><label>Coverage ends at age (0 = lifetime)</label><input type="number" id="life2end" value="0"></div>
+        <div class="hint">If the insured person is still covered when their plan ends, the benefit goes to the taxable account the following year, income-tax-free. Premiums are fixed and stop at death or when coverage ends. Estate tax and policy loans are not modeled.</div>
+      </div></details>
+
+      <details class="card"><summary>Simulation settings</summary><div class="body">
+        <div class="row"><label>Monte Carlo simulations</label><input type="number" id="sims" value="1500"></div>
+      </div></details>
+    </div>
+
+    <div>
+      <div style="margin-bottom:10px">
+        <button class="btn" id="copyBtn" type="button">Copy scenario summary</button>
+        <span class="hint" id="copyMsg" style="margin-left:8px"></span>
+        <textarea id="summaryBox" readonly rows="16" style="display:none;width:100%;margin-top:8px;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--input-bg);color:var(--text);font:12px/1.4 ui-monospace,Menlo,Consolas,monospace;"></textarea>
+      </div>
+      <div class="stats" id="stats"></div>
+      <div class="card">
+        <h2>Account Balance Over Time</h2>
+        <div class="chartbox"><canvas id="chart"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Year-by-Year Detail</h2>
+        <div class="tablewrap">
+          <table id="tbl">
+            <thead><tr>
+              <th>Year</th><th>Age 1</th><th>Age 2</th><th>Income</th><th>Expenses</th><th>Taxes</th><th>Gifts</th>
+              <th>Withdrawn</th><th>Growth</th><th>Pre-tax</th><th>Roth</th><th>Taxable</th><th>Total</th><th>Home Equity</th><th>Net Worth</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="hint">Rows in red mean the accounts have run out under the steady-return assumption. The table and solid line use your expected return every year; the dotted lines and success rate come from the Monte Carlo runs, which randomize yearly returns and recompute taxes each time. Inflation, longevity, and tax law are not randomized, so treat the success rate as a guide for comparing scenarios, not a guarantee. Taxes include any early-withdrawal penalty.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const ids = ['age1','retire1','planAge','age2','retire2','planAge2',
+  'sal1','sal2','ss1','ss1age','ss2','ss2age','pen1','pen1age','pen2','pen2age','otherInc',
+  'spendMonthly','mortgage','mortgageYrs','debt','debtYrs','medWork','medRet','medMedicare','medicareAge',
+  'acctPre','acctRoth','acctTax','returnRate','fee','inflation','medInflation','volatility',
+  'pt1','pt1end','pt2','pt2end','ev1year','ev1amt','ev2year','ev2amt','ev3year','ev3amt','ev4year','ev4amt',
+  'spendOne','spendAge2','spendPct2','spendAge3','spendPct3','survSpend','ltcCost','ltcAge','ltcYrs','lumpAmt','lumpAge','ssCut','ssCutYear',
+  'deathWho','deathAge','pen1cola','pen1surv','pen2cola','pen2surv',
+  'stateRate','capRate','gainFrac','rmdAge','penRate','penAge','penExempt',
+  'homeValue','homeAppr','mortBal','sellAge','sellCost','basis','homeAfter','newPrice','newHousing','movingCost',
+  'giftRecipients','giftAmt','giftGivers','giftLimit','giftStart','giftEnd',
+  'life1','life1prem','life1end','life2','life2prem','life2end','sims'];
+let timer;
+const schedule = () => { clearTimeout(timer); timer=setTimeout(calc,120); };
+ids.forEach(id => { const el=document.getElementById(id);
+  ['input','change'].forEach(ev => el.addEventListener(ev, schedule)); });
+
+// budget helper
+const bh = [...document.querySelectorAll('.bh')];
+const bhSum = () => bh.reduce((s,e)=>s+(parseFloat(e.value)||0),0);
+bh.forEach(e=>e.addEventListener('input',()=>{ document.getElementById('bhTotal').textContent='$'+Math.round(bhSum()).toLocaleString(); }));
+document.getElementById('bhUse').addEventListener('click',()=>{ document.getElementById('spendMonthly').value=Math.round(bhSum()); calc(); });
+// expand/collapse optional sections
+document.getElementById('toggleAll').addEventListener('click',e=>{
+  const ds=[...document.querySelectorAll('details.card')]; const open=ds.some(d=>!d.open);
+  ds.forEach(d=>d.open=open); e.target.textContent=open?'Collapse all':'Expand all'; });
+
+let chart, last=null;
+const fmt = n => (n<0?'-$':'$') + Math.abs(Math.round(n)).toLocaleString();
+const fmtK = n => Math.round(n/1000) + 'k';
+
+// ---- 2026 federal tax data (Rev. Proc. 2025-32) ----
+const BR = {
+  mfj:{ded:32200, b:[[24800,.10],[100800,.12],[211400,.22],[403550,.24],[512450,.32],[768700,.35],[Infinity,.37]]},
+  single:{ded:16100, b:[[12400,.10],[50400,.12],[105700,.22],[201775,.24],[256225,.32],[640600,.35],[Infinity,.37]]}
+};
+function fedTax(ti, status, f){
+  const x=ti/f; let prev=0, t=0;
+  for(const [lim,r] of BR[status].b){ if(x>prev) t += (Math.min(x,lim)-prev)*r; prev=lim; if(x<=lim) break; }
+  return t*f;
+}
+function ssTaxable(ss, other, status){
+  if(ss<=0) return 0;
+  const [t1,t2] = status==='mfj' ? [32000,44000] : [25000,34000];
+  const pi = other + 0.5*ss;
+  if(pi<=t1) return 0;
+  const tx = pi<=t2 ? 0.5*(pi-t1) : 0.85*(pi-t2) + Math.min(0.5*ss, 0.5*(t2-t1));
+  return Math.min(tx, 0.85*ss);
+}
+const RMD_DIV={73:26.5,74:25.5,75:24.6,76:23.7,77:22.9,78:22.0,79:21.1,80:20.2,81:19.4,82:18.5,83:17.7,84:16.8,85:16.0,
+  86:15.2,87:14.4,88:13.7,89:12.9,90:12.2,91:11.5,92:10.8,93:10.1,94:9.5,95:8.9,96:8.4,97:7.8,98:7.3,99:6.8,100:6.4};
+const rmdDiv = a => a>100 ? 6.4 : (RMD_DIV[a] || 27.4);
+
+function readParams(){
+  const v = id => parseFloat(document.getElementById(id).value) || 0;
+  const P = {};
+  ['age1','retire1','planAge','age2','retire2','planAge2','deathWho','deathAge','ss1age','ss2age','ssCutYear','pen1age','pen2age',
+   'medicareAge','mortgageYrs','debtYrs','ltcAge','ltcYrs','lumpAge','rmdAge','penAge','giftStart','giftEnd','giftRecipients','giftLimit','giftAmt',
+   'sal1','sal2','ss1','ss2','otherInc','pen1','pen2','ltcCost','lumpAmt','acctPre','acctRoth','acctTax','homeValue','mortBal',
+   'sellAge','newPrice','movingCost','basis','homeAfter','life1','life1prem','life1end','life2','life2prem','life2end',
+   'spendAge2','spendAge3','pt1','pt1end','pt2','pt2end']
+    .forEach(k => P[k]=v(k));
+  P.ssCut=v('ssCut')/100; P.survSpend=v('survSpend')/100; P.spendPct2=v('spendPct2')/100; P.spendPct3=v('spendPct3')/100;
+  P.pen1cola=v('pen1cola')/100; P.pen2cola=v('pen2cola')/100; P.pen1surv=v('pen1surv')/100; P.pen2surv=v('pen2surv')/100;
+  P.spend=v('spendMonthly')*12; P.spendOne=v('spendOne')*12;
+  P.medWork=v('medWork')*12; P.medRet=v('medRet')*12; P.medMedicare=v('medMedicare')*12;
+  P.mortgage=v('mortgage')*12; P.debt=v('debt')*12;
+  P.ret=v('returnRate')/100; P.fee=v('fee')/100; P.infl=v('inflation')/100; P.medInfl=v('medInflation')/100; P.vol=v('volatility')/100;
+  P.stateRate=v('stateRate')/100; P.capRate=v('capRate')/100; P.gainFrac=v('gainFrac')/100;
+  P.penRate=v('penRate')/100; P.penExempt=v('penExempt')/100;
+  P.homeAppr=v('homeAppr')/100; P.sellCost=v('sellCost')/100; P.newHousing=v('newHousing')*12;
+  P.giftGivers=Math.min(2,Math.max(1,v('giftGivers')||1));
+  P.sims=Math.min(5000,Math.max(100,Math.round(v('sims'))||1500));
+  P.events=[1,2,3,4].map(k=>({year:v('ev'+k+'year'), amt:v('ev'+k+'amt')}));
+  P.startYear=new Date().getFullYear();
+  P.hasP2=P.age2>0;
+  P.endAge1 = P.deathWho===1 ? P.deathAge+1 : P.planAge+1;
+  P.endAge2 = P.hasP2 ? (P.deathWho===2 ? P.deathAge+1 : (P.planAge2||P.planAge)+1) : 0;
+  P.years=Math.max(1, Math.round(Math.max(P.endAge1-P.age1, P.hasP2?P.endAge2-P.age2:0)));
+  return P;
+}
+
+function pension(amt, start, cola, ownerAge, ownerAlive, survPct, partnerAlive){
+  if(amt<=0 || ownerAge<start) return 0;
+  const base = amt*Math.pow(1+cola, ownerAge-start);
+  return ownerAlive ? base : (partnerAlive ? base*survPct : 0);
+}
+
+// Runs the whole plan once. rets[i] is the investment return for year i.
+function project(P, rets){
+  const rows=[]; const thisYear=P.startYear; const hasP2=P.hasP2;
+  let bPre=P.acctPre, bRoth=P.acctRoth, bTax=P.acctTax;
+  const sellIdx = (P.sellAge>0 && P.sellAge>=P.age1) ? P.sellAge-P.age1 : Infinity;
+
+  for(let i=0;i<P.years;i++){
+    const yr=thisYear+i;
+    const age1=P.age1+i, age2=hasP2?P.age2+i:0;
+    const alive1 = age1<P.endAge1;
+    const alive2 = hasP2 && age2<P.endAge2;
+    const nAlive = (alive1?1:0)+(alive2?1:0);
+    const status = nAlive===2 ? 'mfj' : 'single';
+    const work1 = alive1 && age1<P.retire1, work2 = alive2 && age2<P.retire2;
+    const f=Math.pow(1+P.infl,i), mf=Math.pow(1+P.medInfl,i);
+
+    // home sale at the start of the sale year
+    let saleNet=0, homeTax=0;
+    if(i===sellIdx){
+      const hv=P.homeValue*Math.pow(1+P.homeAppr,i);
+      const mb=P.mortgageYrs>0?Math.max(0,P.mortBal*(1-i/P.mortgageYrs)):0;
+      const net=hv*(1-P.sellCost);
+      homeTax=Math.max(0,net-P.basis-(nAlive===2?500000:250000))*P.capRate;
+      const buy=P.homeAfter===1?P.newPrice*Math.pow(1+P.homeAppr,i):0;
+      saleNet=net-mb-homeTax-buy-P.movingCost*f;
+    }
+    const sold = i>=sellIdx;
+    if(saleNet>0) bTax+=saleNet;
+
+    // one-time events (nominal dollars)
+    let evNet=0; for(const e of P.events){ if(e.amt && e.year===yr) evNet+=e.amt; }
+    if(evNet>0) bTax+=evNet;
+
+    // life insurance, paid the year after the insured person's plan ends
+    let lifePay=0;
+    if(age1===P.endAge1 && P.life1>0 && (P.life1end===0 || P.endAge1-1<P.life1end)) lifePay+=P.life1;
+    if(hasP2 && age2===P.endAge2 && P.life2>0 && (P.life2end===0 || P.endAge2-1<P.life2end)) lifePay+=P.life2;
+    if(lifePay>0) bTax+=lifePay;
+
+    // income
+    const pt = ((alive1&&age1>=P.retire1&&yr<=P.pt1end)?P.pt1:0)+((alive2&&age2>=P.retire2&&yr<=P.pt2end)?P.pt2:0);
+    const wages = ((work1?P.sal1:0)+(work2?P.sal2:0)+pt)*f;
+    const b1=P.ss1*f, b2=P.ss2*f; let ss=0;
+    if(nAlive===2) ss=(age1>=P.ss1age?b1:0)+(age2>=P.ss2age?b2:0);
+    else if(alive1) ss = age1>=P.ss1age ? (hasP2?Math.max(b1,b2):b1) : 0;
+    else if(alive2) ss = age2>=P.ss2age ? Math.max(b1,b2) : 0;
+    if(yr>=P.ssCutYear) ss*=(1-P.ssCut);
+    const pens = pension(P.pen1,P.pen1age,P.pen1cola,age1,alive1,P.pen1surv,alive2)
+               + (hasP2?pension(P.pen2,P.pen2age,P.pen2cola,age2,alive2,P.pen2surv,alive1):0);
+    const other = P.otherInc*f;
+    const cashIn = wages+ss+pens+other;
+
+    // spending
+    const stage = age1>=P.spendAge3 ? P.spendPct3 : (age1>=P.spendAge2 ? P.spendPct2 : 1);
+    const oneWorking = hasP2 && nAlive===2 && ((work1?1:0)+(work2?1:0))===1 && P.spendOne>0;
+    const living = (oneWorking?P.spendOne:P.spend)*f*stage*((hasP2&&nAlive<2)?P.survSpend:1);
+    const medCost = (age, working) => age>=P.medicareAge ? P.medMedicare : (working?P.medWork:P.medRet);
+    const med = ((alive1?medCost(age1,work1):0)+(alive2?medCost(age2,work2):0))*mf;
+    const mortgage = (!sold && i<P.mortgageYrs)?P.mortgage:0, debt = i<P.debtYrs?P.debt:0;
+    const ltc = (alive1&&age1>=P.ltcAge&&age1<P.ltcAge+P.ltcYrs)?P.ltcCost*mf:0;
+    const lump = age1===P.lumpAge?P.lumpAmt*f:0;
+    const prem = (alive1&&(P.life1end===0||age1<P.life1end)?P.life1prem:0)+(alive2&&(P.life2end===0||age2<P.life2end)?P.life2prem:0);
+    const spend = living+med+mortgage+debt+ltc+lump+prem+(sold?P.newHousing*f:0)+(saleNet<0?-saleNet:0)+(evNet<0?-evNet:0);
+    const giftActive = age1>=P.giftStart && age1<=P.giftEnd && P.giftRecipients>0;
+    const gift = giftActive?P.giftRecipients*P.giftAmt*f:0;
+    const givers = Math.min(P.giftGivers, Math.max(1,nAlive));
+    const overLimit = giftActive && P.giftAmt*f > P.giftLimit*givers*f;
+
+    // required minimum distribution
+    const oldest = Math.max(alive1?age1:0, alive2?age2:0);
+    const rmd = (oldest>=P.rmdAge && bPre>0) ? bPre/rmdDiv(oldest) : 0;
+    const penOn = age1 < P.penAge;
+
+    // solve withdrawals and taxes together (taxes depend on withdrawals and vice versa)
+    let tax=0, penalty=0, wT=0, wP=0, wR=0, surplus=0;
+    for(let it=0; it<20; it++){
+      let rem = spend+gift+tax-cashIn - Math.min(rmd,bPre);
+      wP=Math.min(rmd,bPre); wT=0; wR=0; surplus=0;
+      if(rem>0){
+        wT=Math.min(Math.max(bTax,0),rem); rem-=wT;
+        const xp=Math.min(bPre-wP,rem); wP+=xp; rem-=xp;
+        wR=Math.min(bRoth,rem); rem-=wR;
+        if(rem>0) wT+=rem; // shortfall: taxable account goes negative
+      } else surplus=-rem;
+      const ordinary = wages+pens+other+wP;
+      const ssTx = ssTaxable(ss, ordinary, status);
+      const ti = Math.max(0, ordinary+ssTx-BR[status].ded*f);
+      const gains = Math.min(wT, Math.max(bTax,0))*P.gainFrac;
+      penalty = penOn ? P.penRate*(1-P.penExempt)*wP : 0;
+      const nt = fedTax(ti,status,f) + P.stateRate*ti + 0.0765*wages + P.capRate*gains + penalty;
+      const done = Math.abs(nt-tax)<0.5; tax=nt; if(done) break;
+    }
+    bTax = bTax - wT + surplus; bPre -= wP; bRoth -= wR;
+
+    const r = rets[i]-P.fee;
+    const gr = b => b>0 ? b*r : 0;
+    const g1=gr(bPre), g2=gr(bRoth), g3=gr(bTax);
+    bPre+=g1; bRoth+=g2; bTax+=g3;
+    const endBal = bPre+bRoth+bTax;
+
+    let equity;
+    if(sold) equity = P.homeAfter===1 ? P.newPrice*Math.pow(1+P.homeAppr,i+1) : 0;
+    else {
+      const homeVal = P.homeValue*Math.pow(1+P.homeAppr,i+1);
+      const mortBal = P.mortgageYrs>0 ? Math.max(0,P.mortBal*(1-(i+1)/P.mortgageYrs)) : 0;
+      equity = homeVal-mortBal;
+    }
+    rows.push({year:yr, age1, age2, income:cashIn, expenses:spend, taxes:tax+homeTax, penalty, gift, saleNet, lifePay, withdrawn:wT+wP+wR,
+      growth:g1+g2+g3, bPre, bRoth, bTax, endBal, equity, netWorth:endBal+equity, overLimit});
+  }
+  return rows;
+}
+
+function randn(){ let u=0,w=0; while(u===0)u=Math.random(); while(w===0)w=Math.random(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*w); }
+
+function monteCarlo(P){
+  const T=P.years, n=P.sims, paths=[]; let ok=0;
+  for(let s=0;s<n;s++){
+    const rets=new Array(T); for(let i=0;i<T;i++) rets[i]=Math.max(-0.6, P.ret+P.vol*randn());
+    const rows=project(P,rets); const path=rows.map(r=>r.endBal);
+    if(Math.min(...path)>=0) ok++;
+    paths.push(path);
+  }
+  const pct=(i,q)=>{ const a=paths.map(p=>p[i]).sort((x,y)=>x-y); return a[Math.min(n-1,Math.floor(q*n))]; };
+  const p10=[],p50=[],p90=[];
+  for(let i=0;i<T;i++){ p10.push(pct(i,0.10)); p50.push(pct(i,0.50)); p90.push(pct(i,0.90)); }
+  return {success:ok/n, p10, p50, p90, n};
+}
+
+function calc(){
+  const P=readParams();
+  const rows=project(P, new Array(P.years).fill(P.ret));
+  const dep=rows.find(r=>r.endBal<0);
+  const mc=monteCarlo(P);
+  last={P,rows,mc,dep};
+  renderStats(rows, dep?dep.year:null, mc);
+  renderChart(rows, mc);
+  renderTable(rows);
+}
+
+function renderStats(rows, depletedYear, mc){
+  const el=document.getElementById('stats'); const last=rows[rows.length-1];
+  const sp=Math.round(mc.success*100);
+  const overYrs=rows.filter(r=>r.overLimit).length;
+  const sum=k=>rows.reduce((s,r)=>s+r[k],0);
+  const items=[
+    {k:'Probability of success ('+mc.n.toLocaleString()+' runs)', v:sp+'%', cls: sp>=80?'ok':(sp>=65?'':'danger')},
+    {k:'Ending balance, final year (steady return)', v:fmt(last.endBal), cls:last.endBal>=0?'ok':'danger'},
+    {k:'Median ending balance', v:fmt(mc.p50[mc.p50.length-1]), cls:''},
+    {k:'Poor markets (10th pct) ending', v:fmt(mc.p10[mc.p10.length-1]), cls:mc.p10[mc.p10.length-1]>=0?'':'danger'},
+    {k:'Home equity, final year', v:fmt(last.equity), cls:''},
+    {k:'Net worth, final year', v:fmt(last.netWorth), cls:last.netWorth>=0?'ok':'danger'},
+    ...(rows.some(r=>r.saleNet!==0)?[{k:'Net from home sale (after payoff, tax, new home)', v:fmt(sum('saleNet')), cls:''}]:[]),
+    ...(rows.some(r=>r.lifePay>0)?[{k:'Life insurance payout', v:fmt(sum('lifePay')), cls:'ok'}]:[]),
+    ...(sum('penalty')>0?[{k:'Early-withdrawal penalties', v:fmt(sum('penalty')), cls:'danger'}]:[]),
+    {k:'Lifetime taxes (nominal $)', v:fmt(sum('taxes')), cls:''},
+    ...(sum('gift')>0?[{k:'Total gifted to children', v:fmt(sum('gift')), cls:''},
+      {k:'Gifts vs. annual exclusion', v: overYrs?('Over limit in '+overYrs+' yrs'):'Within limit', cls: overYrs?'danger':'ok'}]:[]),
+    {k:'Accounts deplete (steady return)', v: depletedYear?depletedYear:'Never', cls: depletedYear?'danger':'ok'}
+  ];
+  el.innerHTML='';
+  items.forEach(it=>{ const d=document.createElement('div'); d.className='stat '+it.cls;
+    d.innerHTML='<span class="v">'+it.v+'</span><span class="k">'+it.k+'</span>'; el.appendChild(d); });
+}
+
+function renderChart(rows, mc){
+  const ctx=document.getElementById('chart').getContext('2d');
+  const labels=rows.map(r=>r.year);
+  const st=getComputedStyle(document.documentElement);
+  const accent=st.getPropertyValue('--accent').trim(), accent2=st.getPropertyValue('--accent2').trim();
+  const text=st.getPropertyValue('--text').trim(), border=st.getPropertyValue('--border').trim();
+  if(chart) chart.destroy();
+  const line=(label,data,color,extra)=>Object.assign({label,data:data.map(Math.round),borderColor:color,fill:false,tension:0.25,pointRadius:0,borderWidth:1.5},extra||{});
+  chart=new Chart(ctx,{
+    type:'line',
+    data:{labels,datasets:[
+      line('Accounts (steady return)',rows.map(r=>r.endBal),accent,{backgroundColor:accent+'33',fill:true,borderWidth:2}),
+      line('Net worth (accounts + home equity)',rows.map(r=>r.netWorth),accent2,{borderDash:[6,4],borderWidth:2}),
+      line('Poor markets (10th pct)',mc.p10,'#b3491f',{borderDash:[2,3]}),
+      line('Median market path',mc.p50,text,{borderDash:[2,3]}),
+      line('Good markets (90th pct)',mc.p90,'#4f8f6b',{borderDash:[2,3]})
+    ]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:true,labels:{color:text,boxWidth:18,font:{size:11}}}, tooltip:{callbacks:{label:c=>c.dataset.label+': '+fmt(c.parsed.y)}}},
+      scales:{x:{ticks:{color:text,maxTicksLimit:10},grid:{color:border}}, y:{ticks:{color:text,callback:v=>fmtK(v)},grid:{color:border}}}
+    }
+  });
+}
+
+function renderTable(rows){
+  document.querySelector('#tbl tbody').innerHTML = rows.map(r=>
+    '<tr class="'+(r.endBal<0?'depleted':'')+'">'+
+    '<td>'+r.year+'</td><td>'+r.age1+'</td><td>'+(r.age2||'–')+'</td>'+
+    '<td>'+fmt(r.income)+'</td><td>'+fmt(r.expenses)+'</td><td>'+fmt(r.taxes)+'</td><td>'+fmt(r.gift)+'</td>'+
+    '<td>'+fmt(r.withdrawn)+'</td><td>'+fmt(r.growth)+'</td><td>'+fmt(r.bPre)+'</td><td>'+fmt(r.bRoth)+'</td><td>'+fmt(r.bTax)+'</td>'+
+    '<td>'+fmt(r.endBal)+'</td><td>'+fmt(r.equity)+'</td><td>'+fmt(r.netWorth)+'</td></tr>'
+  ).join('');
+}
+
+// ---- scenario summary for sharing ----
+function summaryText(){
+  const {P,rows,mc,dep}=last, L=[], pct=x=>(Math.round(x*10000)/100)+'%', sum=k=>rows.reduce((s,r)=>s+r[k],0);
+  const lastRow=rows[rows.length-1], mo=x=>fmt(x/12)+'/mo';
+  L.push('RETIREMENT SCENARIO SUMMARY');
+  L.push('Prepared '+new Date().toLocaleDateString()+' with a simplified planning calculator. It is a rough cross-check, not a replacement for a full plan.','');
+  L.push('RESULTS');
+  L.push('- Probability of success: '+Math.round(mc.success*100)+'% ('+mc.n.toLocaleString()+' Monte Carlo runs, '+pct(P.vol)+' volatility)');
+  L.push('- Final-year account balance: '+fmt(lastRow.endBal)+' at steady '+pct(P.ret)+' return; median '+fmt(mc.p50[mc.p50.length-1])+'; poor markets (10th pct) '+fmt(mc.p10[mc.p10.length-1]));
+  L.push('- Accounts run out (steady return): '+(dep?dep.year:'never within the plan'));
+  L.push('- Net worth in final year (accounts + home equity): '+fmt(lastRow.netWorth));
+  L.push('- Lifetime taxes: '+fmt(sum('taxes'))+(sum('penalty')>0?' (includes '+fmt(sum('penalty'))+' in early-withdrawal penalties)':''));
+  L.push('- All dollar results are nominal (future) dollars.','');
+  L.push('TIMELINE');
+  L.push('- Person 1: age '+P.age1+', retires at '+P.retire1+', plan through age '+(P.endAge1-1));
+  if(P.hasP2) L.push('- Person 2: age '+P.age2+', retires at '+P.retire2+', plan through age '+(P.endAge2-1));
+  L.push('- Projection starts '+P.startYear+' and runs '+P.years+' years','');
+  L.push('INCOME (today\'s dollars)');
+  L.push('- Salary: Person 1 '+fmt(P.sal1)+(P.hasP2?', Person 2 '+fmt(P.sal2):'')+' per year, ending at retirement');
+  L.push('- Social Security: Person 1 '+fmt(P.ss1)+' at age '+P.ss1age+(P.hasP2?'; Person 2 '+fmt(P.ss2)+' at age '+P.ss2age:''));
+  if(P.pen1>0) L.push('- Person 1 pension: '+fmt(P.pen1)+' from age '+P.pen1age+', COLA '+pct(P.pen1cola)+', survivor '+pct(P.pen1surv)+' (amount as first paid)');
+  if(P.pen2>0) L.push('- Person 2 pension: '+fmt(P.pen2)+' from age '+P.pen2age+', COLA '+pct(P.pen2cola)+', survivor '+pct(P.pen2surv)+' (amount as first paid)');
+  if(P.otherInc>0) L.push('- Other income: '+fmt(P.otherInc)+' per year');
+  L.push('');
+  L.push('SPENDING');
+  L.push('- Household spending: '+mo(P.spend)+' ('+fmt(P.spend)+'/yr), inflating at '+pct(P.infl));
+  if(P.mortgage>0) L.push('- Mortgage/rent: '+mo(P.mortgage)+' for '+P.mortgageYrs+' years (fixed)');
+  if(P.debt>0) L.push('- Other debt: '+mo(P.debt)+' for '+P.debtYrs+' years (fixed)');
+  if(P.hasP2) L.push('- After the first person\'s plan ends, household spending drops to '+pct(P.survSpend)+' of the couple\'s');
+  L.push('- Medical per person: '+mo(P.medWork)+' while working, '+mo(P.medRet)+' retired before Medicare, '+mo(P.medMedicare)+' on Medicare (age '+P.medicareAge+'), inflating at '+pct(P.medInfl),'');
+  L.push('ACCOUNTS AND GROWTH');
+  L.push('- Starting balances: pre-tax '+fmt(P.acctPre)+', Roth '+fmt(P.acctRoth)+', taxable '+fmt(P.acctTax)+' (total '+fmt(P.acctPre+P.acctRoth+P.acctTax)+')');
+  L.push('- Expected return '+pct(P.ret)+', fees '+pct(P.fee)+', volatility '+pct(P.vol));
+  L.push('- Withdrawal order: taxable, then pre-tax, then Roth; RMDs from age '+P.rmdAge);
+  L.push('- Taxes: 2026 federal brackets (indexed), state '+pct(P.stateRate)+', capital gains '+pct(P.capRate)+', '+pct(P.gainFrac)+' of taxable withdrawals treated as gain','');
+  const sc=[];
+  if(P.pt1>0||P.pt2>0) sc.push('Part-time work after retirement: '+(P.pt1>0?'Person 1 '+fmt(P.pt1)+'/yr through '+P.pt1end:'')+(P.pt1>0&&P.pt2>0?'; ':'')+(P.pt2>0?'Person 2 '+fmt(P.pt2)+'/yr through '+P.pt2end:''));
+  P.events.filter(e=>e.amt).forEach(e=>sc.push('One-time event in '+e.year+': '+fmt(e.amt)+' (nominal)'));
+  if(P.spendOne>0) sc.push('Spending while exactly one person works: '+mo(P.spendOne));
+  if(P.spendPct2!==1||P.spendPct3!==1) sc.push('Spending stages: '+pct(P.spendPct2)+' from age '+P.spendAge2+', '+pct(P.spendPct3)+' from age '+P.spendAge3+' (Person 1 age)');
+  if(P.ltcCost>0) sc.push('Long-term care: '+fmt(P.ltcCost)+'/yr (today\'s $) for '+P.ltcYrs+' years from Person 1 age '+P.ltcAge);
+  if(P.lumpAmt>0) sc.push('One-time expense: '+fmt(P.lumpAmt)+' (today\'s $) at Person 1 age '+P.lumpAge);
+  if(P.ssCut>0) sc.push('Social Security cut: '+pct(P.ssCut)+' starting '+P.ssCutYear);
+  if(P.deathWho>0) sc.push('Early death override: Person '+P.deathWho+' dies at age '+P.deathAge);
+  if(P.penExempt>0) sc.push('Early-withdrawal penalty: '+pct(P.penExempt)+' of pre-tax withdrawals treated as exempt');
+  if(P.sellAge>0) sc.push('Home sale at Person 1 age '+P.sellAge+': value '+fmt(P.homeValue)+' today growing '+pct(P.homeAppr)+', selling costs '+pct(P.sellCost)+', basis '+fmt(P.basis)+', then '+(P.homeAfter===1?'buy at '+fmt(P.newPrice)+' (today\'s $)':'rent')+' at '+mo(P.newHousing)+', moving costs '+fmt(P.movingCost));
+  else if(P.homeValue>0) sc.push('Home value '+fmt(P.homeValue)+' (growing '+pct(P.homeAppr)+', mortgage balance '+fmt(P.mortBal)+') counted in net worth only');
+  if(P.giftRecipients>0) sc.push('Annual gifts: '+fmt(P.giftAmt)+' to each of '+P.giftRecipients+' recipients, ages '+P.giftStart+'-'+P.giftEnd+', '+P.giftGivers+' giver(s)');
+  if(P.life1>0||P.life2>0) sc.push('Life insurance: '+(P.life1>0?'Person 1 '+fmt(P.life1)+' ($'+Math.round(P.life1prem).toLocaleString()+'/yr premium, '+(P.life1end?'term to age '+P.life1end:'lifetime')+')':'')+(P.life1>0&&P.life2>0?'; ':'')+(P.life2>0?'Person 2 '+fmt(P.life2)+' ($'+Math.round(P.life2prem).toLocaleString()+'/yr premium, '+(P.life2end?'term to age '+P.life2end:'lifetime')+')':''));
+  if(sc.length){ L.push('OPTIONAL SCENARIOS IN USE'); sc.forEach(x=>L.push('- '+x)); L.push(''); }
+  L.push('YEAR-BY-YEAR SNAPSHOT (steady return, nominal $)');
+  rows.forEach((r,i)=>{ if(i%5===0||i===rows.length-1) L.push('- '+r.year+' (ages '+r.age1+(P.hasP2?'/'+r.age2:'')+'): spending '+fmt(r.expenses)+', taxes '+fmt(r.taxes)+', end balance '+fmt(r.endBal)); });
+  L.push('');
+  L.push('NOT MODELED: extra deductions for age 65+, Medicare income surcharges, taxes on brokerage interest/dividends, Roth conversions, Social Security claiming-age adjustments, estate tax. Inflation, longevity and tax law are fixed; only investment returns vary in the Monte Carlo.');
+  return L.join('\n');
+}
+async function copySummary(){
+  clearTimeout(timer); calc();
+  const t=summaryText(), box=document.getElementById('summaryBox'), msg=document.getElementById('copyMsg');
+  box.value=t; box.style.display='block'; box.focus(); box.select();
+  let ok=false;
+  try{ await navigator.clipboard.writeText(t); ok=true; }catch(e){ try{ ok=document.execCommand('copy'); }catch(e2){} }
+  msg.textContent = ok ? 'Copied. Paste it into an email.' : 'Select the text below and copy it (Ctrl/Cmd+C).';
+}
+document.getElementById('copyBtn').addEventListener('click',copySummary);
+
+calc();
+</script>
+</body>
+</html>
